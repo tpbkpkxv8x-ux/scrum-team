@@ -59,26 +59,32 @@ class BacklogItem:
 
     # -- convenience methods (delegate to backlog) --
 
-    def assign(self, agent_name: str | None) -> None:
-        assert self._backlog is not None
-        self._backlog.assign(self.id, agent_name)
-        self.assigned_to = agent_name
+    def assign(self, agent_name: str | None, *, agent: str | None = None) -> None:
+        if self._backlog is None:
+            raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
+        updated = self._backlog.assign(self.id, agent_name, agent=agent)
+        self.assigned_to = updated.assigned_to
+        self.updated_at = updated.updated_at
 
     def update_status(
         self, new_status: str, *, agent: str | None = None, result: str | None = None,
     ) -> None:
-        assert self._backlog is not None
-        self._backlog.update_status(self.id, new_status, agent=agent, result=result)
-        self.status = new_status
+        if self._backlog is None:
+            raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
+        updated = self._backlog.update_status(self.id, new_status, agent=agent, result=result)
+        self.status = updated.status
+        self.updated_at = updated.updated_at
         if result is not None:
-            self.result = result
+            self.result = updated.result
 
     def comment(self, agent_name: str, text: str) -> None:
-        assert self._backlog is not None
+        if self._backlog is None:
+            raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
         self._backlog.comment(self.id, agent_name, text)
 
     def refresh(self) -> Self:
-        assert self._backlog is not None
+        if self._backlog is None:
+            raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
         fresh = self._backlog.get_item(self.id)
         if fresh is None:
             raise LookupError(f"Backlog item {self.id} no longer exists")
@@ -86,7 +92,8 @@ class BacklogItem:
         return self
 
     def get_history(self) -> list[dict[str, Any]]:
-        assert self._backlog is not None
+        if self._backlog is None:
+            raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
         return self._backlog.get_history(self.id)
 
 
@@ -98,7 +105,7 @@ _instances: dict[str, ProductBacklog] = {}
 _instance_lock = threading.Lock()
 
 
-def get_backlog(db_path: str | Path = DEFAULT_DB_PATH) -> ProductBacklog:
+def get_backlog_db(db_path: str | Path = DEFAULT_DB_PATH) -> ProductBacklog:
     """Thread-safe singleton — one ProductBacklog per database path."""
     key = str(Path(db_path).resolve())
     if key not in _instances:
@@ -125,7 +132,6 @@ class ProductBacklog:
             conn = sqlite3.connect(
                 str(self.db_path),
                 timeout=30,
-                check_same_thread=False,
             )
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA busy_timeout=5000")
@@ -228,7 +234,7 @@ class ProductBacklog:
             )
         return self._row_to_item(row)
 
-    def assign(self, item_id: int, agent_name: str | None) -> BacklogItem:
+    def assign(self, item_id: int, agent_name: str | None, *, agent: str | None = None) -> BacklogItem:
         with self._tx() as cur:
             cur.execute("SELECT assigned_to FROM backlog_items WHERE id = ?", (item_id,))
             row = cur.fetchone()
@@ -244,7 +250,7 @@ class ProductBacklog:
             cur.execute(
                 "INSERT INTO backlog_events (item_id, event_type, old_value, new_value, agent_id)"
                 " VALUES (?, 'assigned', ?, ?, ?)",
-                (item_id, old, agent_name, agent_name),
+                (item_id, old, agent_name, agent),
             )
         return self._row_to_item(updated)
 
@@ -334,7 +340,7 @@ class ProductBacklog:
         rows = self._conn.execute(sql, params).fetchall()
         return [self._row_to_item(r) for r in rows]
 
-    def get_backlog(
+    def list_items(
         self,
         *,
         status: str | None = None,
@@ -372,3 +378,7 @@ class ProductBacklog:
         if conn is not None:
             conn.close()
             self._local.conn = None
+        # Remove from singleton cache so get_backlog_db() creates a fresh instance
+        key = str(self.db_path.resolve())
+        with _instance_lock:
+            _instances.pop(key, None)

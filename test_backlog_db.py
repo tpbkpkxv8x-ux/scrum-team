@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from backlog_db import ProductBacklog, get_backlog
+from backlog_db import ProductBacklog, _instances, get_backlog_db
 
 
 @pytest.fixture()
@@ -94,6 +94,14 @@ class TestAssign:
         assert len(assign_events) == 2
         assert assign_events[1]["old_value"] == "Barry"
         assert assign_events[1]["new_value"] == "Bonnie"
+
+    def test_assign_records_who_assigned(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.assign(item.id, "Barry", agent="Sam")
+        events = db.get_history(item.id)
+        assign_events = [e for e in events if e["event_type"] == "assigned"]
+        assert assign_events[0]["new_value"] == "Barry"
+        assert assign_events[0]["agent_id"] == "Sam"
 
     def test_unassign(self, db: ProductBacklog) -> None:
         item = db.add("Story")
@@ -265,69 +273,69 @@ class TestQuery:
     def test_get_item_not_found(self, db: ProductBacklog) -> None:
         assert db.get_item(999) is None
 
-    def test_get_backlog_all(self, db: ProductBacklog) -> None:
+    def test_list_items_all(self, db: ProductBacklog) -> None:
         db.add("A", priority=1)
         db.add("B", priority=10)
         db.add("C", priority=5)
-        items = db.get_backlog()
+        items = db.list_items()
         assert len(items) == 3
         # Should be ordered by priority DESC
         assert items[0].title == "B"
         assert items[1].title == "C"
         assert items[2].title == "A"
 
-    def test_get_backlog_filtered(self, db: ProductBacklog) -> None:
+    def test_list_items_filtered(self, db: ProductBacklog) -> None:
         db.add("S1", item_type="story")
         db.add("B1", item_type="bug")
         db.add("S2", item_type="story")
-        stories = db.get_backlog(item_type="story")
+        stories = db.list_items(item_type="story")
         assert len(stories) == 2
-        bugs = db.get_backlog(item_type="bug")
+        bugs = db.list_items(item_type="bug")
         assert len(bugs) == 1
 
-    def test_get_backlog_by_status(self, db: ProductBacklog) -> None:
+    def test_list_items_by_status(self, db: ProductBacklog) -> None:
         item = db.add("Story")
         db.update_status(item.id, "ready")
-        backlog_items = db.get_backlog(status="backlog")
-        ready_items = db.get_backlog(status="ready")
+        backlog_items = db.list_items(status="backlog")
+        ready_items = db.list_items(status="ready")
         assert len(backlog_items) == 0
         assert len(ready_items) == 1
 
-    def test_get_backlog_by_assigned(self, db: ProductBacklog) -> None:
+    def test_list_items_by_assigned(self, db: ProductBacklog) -> None:
         item = db.add("Story")
         db.assign(item.id, "Barry")
         db.add("Unassigned story")
-        barry_items = db.get_backlog(assigned_to="Barry")
+        barry_items = db.list_items(assigned_to="Barry")
         assert len(barry_items) == 1
         assert barry_items[0].title == "Story"
 
-    def test_get_backlog_by_sprint(self, db: ProductBacklog) -> None:
+    def test_list_items_by_sprint(self, db: ProductBacklog) -> None:
         db.add("S1", sprint="sprint-1")
         db.add("S2", sprint="sprint-2")
         db.add("S3", sprint="sprint-1")
-        sprint1 = db.get_backlog(sprint="sprint-1")
+        sprint1 = db.list_items(sprint="sprint-1")
         assert len(sprint1) == 2
         assert all(i.sprint == "sprint-1" for i in sprint1)
 
-    def test_get_backlog_combined_filters(self, db: ProductBacklog) -> None:
+    def test_list_items_combined_filters(self, db: ProductBacklog) -> None:
         db.add("S1", item_type="story", sprint="sprint-1")
         db.add("B1", item_type="bug", sprint="sprint-1")
         db.add("S2", item_type="story", sprint="sprint-2")
         item = db.add("S3", item_type="story", sprint="sprint-1")
         db.assign(item.id, "Barry")
-        results = db.get_backlog(item_type="story", sprint="sprint-1", assigned_to="Barry")
+        results = db.list_items(item_type="story", sprint="sprint-1", assigned_to="Barry")
         assert len(results) == 1
         assert results[0].title == "S3"
 
-    def test_get_backlog_empty(self, db: ProductBacklog) -> None:
-        assert db.get_backlog() == []
-        assert db.get_backlog(status="done") == []
+    def test_list_items_empty(self, db: ProductBacklog) -> None:
+        assert db.list_items() == []
+        assert db.list_items(status="done") == []
 
-    def test_get_backlog_priority_tiebreak_by_id(self, db: ProductBacklog) -> None:
+    def test_list_items_priority_tiebreak_by_id(self, db: ProductBacklog) -> None:
         a = db.add("First", priority=5)
         b = db.add("Second", priority=5)
         c = db.add("Third", priority=5)
-        items = db.get_backlog()
+        items = db.list_items()
         assert [i.id for i in items] == [a.id, b.id, c.id]
 
     def test_get_history_nonexistent_item(self, db: ProductBacklog) -> None:
@@ -387,6 +395,23 @@ class TestBacklogItemMethods:
         item.refresh()
         assert item.result == "Shipped!"
 
+    def test_assign_method_with_agent(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        item.assign("Barry", agent="Sam")
+        events = item.get_history()
+        assign_events = [e for e in events if e["event_type"] == "assigned"]
+        assert assign_events[0]["agent_id"] == "Sam"
+        assert assign_events[0]["new_value"] == "Barry"
+
+    def test_bound_methods_sync_updated_at(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        original = item.updated_at
+        item.update_status("ready", agent="Sam")
+        assert item.updated_at >= original
+        after_status = item.updated_at
+        item.assign("Barry", agent="Sam")
+        assert item.updated_at >= after_status
+
     def test_comment_method(self, db: ProductBacklog) -> None:
         item = db.add("Story")
         item.comment("Barry", "Looks good")
@@ -424,7 +449,7 @@ class TestConcurrency:
         for t in threads:
             t.join()
         assert not errors
-        items = db.get_backlog()
+        items = db.list_items()
         assert len(items) == 50
 
     def test_concurrent_status_updates(self, db: ProductBacklog) -> None:
@@ -446,8 +471,36 @@ class TestConcurrency:
         for t in threads:
             t.join()
         assert not errors
-        in_progress = db.get_backlog(status="in_progress")
+        in_progress = db.list_items(status="in_progress")
         assert len(in_progress) == 10
+
+    def test_concurrent_same_item_status_race(self, db: ProductBacklog) -> None:
+        """Two agents try to move the same item from ready to in_progress."""
+        item = db.add("Contested")
+        db.update_status(item.id, "ready")
+        results: list[str] = []
+
+        def try_claim(agent: str) -> None:
+            try:
+                db.update_status(item.id, "in_progress", agent=agent)
+                results.append(f"{agent}:ok")
+            except ValueError:
+                results.append(f"{agent}:rejected")
+
+        t1 = threading.Thread(target=try_claim, args=("Barry",))
+        t2 = threading.Thread(target=try_claim, args=("Bonnie",))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        # Exactly one should succeed, one should fail (already in_progress)
+        ok = [r for r in results if r.endswith(":ok")]
+        rejected = [r for r in results if r.endswith(":rejected")]
+        assert len(ok) == 1
+        assert len(rejected) == 1
+        refreshed = db.get_item(item.id)
+        assert refreshed is not None
+        assert refreshed.status == "in_progress"
 
     def test_concurrent_comments_same_item(self, db: ProductBacklog) -> None:
         """Multiple agents commenting on the same item concurrently."""
@@ -474,23 +527,35 @@ class TestConcurrency:
 
 
 # ---------------------------------------------------------------------------
-# get_backlog singleton
+# get_backlog_db singleton
 # ---------------------------------------------------------------------------
 
 
-class TestGetBacklogSingleton:
+class TestGetBacklogDbSingleton:
     def test_singleton_returns_same_instance(self, tmp_path: Path) -> None:
         db_path = tmp_path / "singleton.db"
-        b1 = get_backlog(db_path)
-        b2 = get_backlog(db_path)
+        b1 = get_backlog_db(db_path)
+        b2 = get_backlog_db(db_path)
         assert b1 is b2
-        b1.close()
+        b1.close()  # also removes from _instances
 
     def test_different_paths_different_instances(self, tmp_path: Path) -> None:
-        b1 = get_backlog(tmp_path / "a.db")
-        b2 = get_backlog(tmp_path / "b.db")
+        b1 = get_backlog_db(tmp_path / "a.db")
+        b2 = get_backlog_db(tmp_path / "b.db")
         assert b1 is not b2
         b1.close()
+        b2.close()
+
+    def test_close_removes_from_singleton_cache(self, tmp_path: Path) -> None:
+        db_path = tmp_path / "lifecycle.db"
+        b1 = get_backlog_db(db_path)
+        key = str(db_path.resolve())
+        assert key in _instances
+        b1.close()
+        assert key not in _instances
+        # A new call should create a fresh instance
+        b2 = get_backlog_db(db_path)
+        assert b2 is not b1
         b2.close()
 
 

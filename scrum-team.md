@@ -122,15 +122,15 @@ The backlog is stored in `backlog.db` (SQLite with WAL mode for concurrent acces
 ### Usage
 
 ```python
-from backlog_db import get_backlog
+from backlog_db import get_backlog_db
 
-bl = get_backlog()  # singleton per DB path
+bl = get_backlog_db()  # singleton per DB path
 
 # Product Owner creates items
 item = bl.add("User login", description="OAuth2 flow", item_type="story", priority=10, sprint="sprint-1", created_by="Paula")
 
 # Scrum Master assigns work
-item.assign("Barry")
+item.assign("Barry", agent="Sam")
 
 # Engineer transitions status
 item.update_status("ready", agent="Sam")
@@ -140,9 +140,9 @@ item.update_status("in_progress", agent="Barry")
 item.comment("Barry", "Blocked on API key")
 
 # Query the backlog
-ready_items = bl.get_backlog(status="ready")
+ready_items = bl.list_items(status="ready")
 sprint_items = bl.get_sprint("sprint-1")
-my_items = bl.get_backlog(assigned_to="Barry")
+my_items = bl.list_items(assigned_to="Barry")
 ```
 
 ### Status flow
