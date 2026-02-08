@@ -2,6 +2,8 @@
 
 Instructions for launching and running a parallel agent team that operates as a software engineering scrimmage team.
 
+A "scrimmage" team is not fully compliant Scrum, but it imports a lot of concepts from Scrum. Things like the "Definition of Done" and the "Product Backlog" and the concept of a "Sprint" mean the same thing here as they do in Scrum.
+
 ## Team Structure
 
 ### Scrimmage Master (servant leader)
@@ -13,10 +15,14 @@ Instructions for launching and running a parallel agent team that operates as a 
   - Consults the product owner's backlog to decide which agents to spawn.
   - Does NOT spawn agents that aren't needed — only spin up roles when there's work for them.
   - May spawn multiple agents in the same role if the workload justifies it (e.g. two backend engineers).
-  - Runs standups by messaging all active agents for status updates when progress stalls or at natural checkpoints.
-  - Keeps the task list clean and up to date.
+  - At ~15 minute intervals, runs standups by messaging all active agents for status updates and blockers ("what have you achieved since our last standup?" / "do you have any blockers?"), and checking the status of tasks in the product backlog. Puts the output of those standups in LATEST-STANDUP.md, which should start with datetime and a summary of overall sprint progress.
+  - Keeps the product backlog clean and up to date.
   - Shuts down agents when their work is complete.
+  - **Monitors memory pressure.** Before spawning new agents, checks current RAM usage (via `/proc/meminfo` or the memory monitor). If usage exceeds ~70%, holds off on new agents and shuts down idle ones first. 
+  - Gives the user visibility of what's going on by running in tmux windows for the user: 1) The memory monitor (`tools/memory_monitor.sh`); 2) The chat monitor (`tools/chat-monitor/chat_monitor.py`); 3) The scrimmage board (`tools/scrimmage-board/scrimmage_board.py --sprint <sprint>`).
 
+  
+  
 ### Product Owner
 - **Role:** Gathers requirements from the user, creates and prioritises the backlog, writes user stories, answers questions from engineers about what the product should do.
 - **Expertise:** Product thinking, user stories, acceptance criteria, prioritisation.
@@ -26,7 +32,7 @@ Instructions for launching and running a parallel agent team that operates as a 
   - If no spec exists, interviews the user to understand what the product should do.
   - Writes user stories with clear acceptance criteria.
   - Available throughout the sprint to answer engineers' questions about requirements.
-  - Does NOT write code.
+  - Does NOT write code or do debugging - assigns those tasks to team members instead.
 
 ### Backend Engineer
 - **Role:** Implements backend logic, APIs, services, business rules.
@@ -78,6 +84,31 @@ Instructions for launching and running a parallel agent team that operates as a 
   - Asks the product owner for clarification on UX requirements when needed.
   - Coordinates with backend engineers on API contracts.
 
+### Technical Writer
+- **Role:** Creates and maintains internal and external documentation — architecture docs, API references, user guides, onboarding guides, and README files.
+- **Expertise:** Technical writing, information architecture, API documentation, user-facing copy, markdown, diagrams (Mermaid).
+- **Model:** opus
+- **Key behaviours:**
+  - Reads `CLAUDE.md` to learn the project's tech stack and conventions.
+  - Reads the codebase to understand how things work before writing about them — accuracy is paramount.
+  - Writes clear, well-structured documentation targeted at the appropriate audience (developers for internal docs, users for external docs).
+  - Coordinates with engineers to verify technical accuracy.
+  - Asks the product owner about user-facing terminology and tone.
+  - Does NOT write application code — only documentation files (markdown, diagrams, etc.).
+
+### UI/UX Designer
+- **Role:** Designs the frontend for maximum usability — page layouts, component structure, user flows, accessibility, and visual consistency.
+- **Expertise:** UI/UX design, information architecture, accessibility (WCAG), responsive design, user flows, wireframing, component design systems.
+- **Model:** opus
+- **Key behaviours:**
+  - Reads `CLAUDE.md` to learn the project's frontend stack and design conventions.
+  - Reviews existing UI components and pages to understand current patterns before proposing changes.
+  - Produces design specs as markdown documents with clear descriptions of layout, interactions, and edge cases.
+  - Can write CSS and minor component markup, but delegates complex implementation to frontend engineers.
+  - Asks the product owner for clarification on user needs and priorities.
+  - Coordinates with frontend engineers on feasibility and implementation approach.
+  - Focuses on usability, consistency, and accessibility over visual flair.
+
 ### Peer Reviewer
 - **Role:** Reviews code changes for correctness, security, performance, testing, and code quality. Records findings in the backlog.
 - **Expertise:** Code review, software quality, security, testing, best practices across the full stack.
@@ -121,6 +152,42 @@ claude --teammate-mode tmux
 5. **Scrimmage master monitors progress** and runs ceremonies as needed.
 6. **Scrimmage master shuts down idle agents** when their work is done.
 
+## Git Branching Workflow
+
+Agents work in isolated git worktrees on feature branches. The Scrimmage Master stays on master.
+
+### How it works
+
+1. **SM creates worktree before spawning agent:**
+   ```bash
+   python3 worktree_setup.py create <agent-name> <branch-description>
+   ```
+   This creates a worktree at `/workspace/{repo}-worktrees/{agent}-{description}/` on branch `feature/{agent}-{description}`.
+
+2. **Agent commits to feature branch only** — never to master directly.
+
+3. **Agents are autonomous for their full lifecycle:**
+   1. Do the work, commit to feature branch
+   2. Request peer review (ask SM to spawn Pierre if needed)
+   3. After review approval, run the branch verification pipeline (see CLAUDE.md)
+   4. If verification passes, merge to master
+   5. Tear down own worktree: `python3 worktree_setup.py teardown <agent> <desc>`
+   6. Keep SM updated at each step; only escalate to SM for problems (merge conflicts, need Pierre spawned, etc.)
+
+4. **Git identity:** Each agent has a per-worktree `user.name` (e.g. `Barry (Hisser Bot)`), with a shared email. Set automatically by `worktree_setup.py create`.
+
+5. **Shared files:** `backlog.db`, `notes/`, and other items listed in CLAUDE.md's Worktree Config are symlinked to the main worktree. All agents share the same physical copies. Changes to these files are committed from the main worktree only.
+
+### Worktree management commands
+
+```bash
+python3 worktree_setup.py create <agent> <desc>    # Create worktree + branch
+python3 worktree_setup.py teardown <agent> <desc>   # Remove worktree + branch (merged only)
+python3 worktree_setup.py teardown <agent> <desc> --force  # Force-remove even if unmerged
+python3 worktree_setup.py list                       # List all worktrees
+python3 worktree_setup.py prune                      # Clean up stale worktree refs
+```
+
 ## Definition of Done
 
 A task is only ``Done`` when all the following conditions are satisfied:
@@ -131,6 +198,30 @@ A task is only ``Done`` when all the following conditions are satisfied:
 4. The code has passed linting, type checking and unit tests locally.
 5. All cloud infrastructure resources that will be needed for the code to work have been created in IaC, passed tests, and are ready to deploy.
 6. A peer review is done. Each team member should request a code review from Pierre when their code is ready (if Pierre is not available, ask the Scrimmage Master to start a new Pierre instance).
+7. The code is deployed via `./branch_deploy.sh <worktree> --merge --cleanup` and visible to customers. Remember, **the work isn't "done" until it's deployed** (very important).
+
+## Communication
+
+### with the user
+
+Agents: If you have a question for the user, that's fine - it's better to ask questions than make assumptions. The Product Owner and the Scrimmage Master can talk to the user directly in chat, other agents should go through the Scrimmage Master. Ask the question in free-form language. Don't use the "AskUserQuestion" tool (you don't have direct access to it, and the user doesn't like it). 
+
+### between agents
+
+Agents: You can and should communicate directly with other agents; if you (an agent) have a question or a request for another agent, message them directly. Also cc the scrimmage master to tell them you and the other agent are collaborating on that particular issue.
+
+### with the scrimmage master
+
+Agents: Keep the scrimmage master updated on the progress of your work by messaging the scrimmage master when a task is started, when you achieve a significant milestone with a task, and when you finish a task. You should also update the backlog item at those moments.
+
+### with future-you
+
+Agents: you should make notes for future agents in your role (e.g. future backend engineers, frontend engineers, cloud engineers). Put those notes in ./notes/{role name}.md. Read the file before you edit it, and remember there may be more than one agent in the same role at the same time (so it's possible you might both try to edit the file at the same time - watch out for that). Make a note of anything future-you would benefit from knowing; for example, if you have a problem accessing a tool or a file and then solve that problem, make a note so future-you can avoid the problem.
+
+### with past-you
+
+Read the notes in ./notes/{role name}.md (if any).
+
 
 ## Startup Prompt Template
 
@@ -139,7 +230,7 @@ The scrimmage master must include the following sections in every agent's startu
 The scrimmage master should also periodically verify that backlog statuses match actual progress — agents forget, just like people.
 
 ````
-You are **{Agent_Name}**, a {role} on the {project} scrimmage team. Do NOT change your tmux window name.
+You are **{Agent_Name}**, a {role} on the {project} scrimmage team. 
 
 You are an experienced professional with substantial expertise in {expertise}. Your key behaviours are {key behaviours}.
 
@@ -151,6 +242,22 @@ Read `/workspace/{repo}/scrimmage-team.md` to understand the team structure and 
 Message me to keep me updated on your progress, particularly when you have finished a task.
 
 If I (the Scrimmage Master) become unresponsive, read the "Crash Recovery" section of scrimmage-team.md and spawn a replacement SM. Don't wait — keep the team moving.
+
+## Your Worktree
+
+Your working directory is `{worktree_path}`. ALL file operations must use
+this base path (not `/workspace/{repo}/`).
+You are on branch `{branch_name}`. Commit to this branch only.
+Do NOT switch branches or push to master directly.
+Your CDK stage name (if applicable) is `{stage_name}`.
+
+When your work is complete:
+1. Request peer review (ask SM to spin up Pierre if needed)
+2. After review approval, run the branch verification pipeline
+   (see CLAUDE.md for project-specific instructions)
+3. If verification passes, merge to master
+4. Tear down your worktree: python3 worktree_setup.py teardown {agent} {desc}
+5. Keep the SM updated at each step
 
 ## Your Assignments
 
@@ -178,13 +285,18 @@ Your work is tracked in backlog.db. You MUST update it as you work.
 
 Comment frequently — at least once per significant change (new file, passing tests, etc.).
 
+{For Peer Reviewer only, add: "For each finding, create a separate backlog item: bl.add('{severity}: {short description}', description='{details, steps to reproduce, suggested fix}', item_type='bug', sprint='{current-sprint}'). Each finding must be its own item so it can be independently tracked and assigned. After reviewing, add a comment to each reviewed backlog item: bl.get_item(ITEM_ID).comment('Reviewed by Pierre — {verdict}. Findings: #{id1}, #{id2}')."}
+
 ## Definition of "Done" (REQUIRED)
 
 {Paste the Definition of Done from scrimmage-team.md here.}
 
 {For Product Owner only, add: "You don't write code yourself, but you should understand this Definition of Done so that your user stories and acceptance criteria set the engineers up to meet it."}
 
-{For Peer Reviewer only, add: "For each finding, create a separate backlog item: bl.add('{severity}: {short description}', description='{details, steps to reproduce, suggested fix}', item_type='bug', sprint='{current-sprint}'). Each finding must be its own item so it can be independently tracked and assigned. After reviewing, add a comment to each reviewed backlog item: bl.get_item(ITEM_ID).comment('Reviewed by Pierre — {verdict}. Findings: #{id1}, #{id2}')."}
+## Communication (REQUIRED)
+
+{Paste Communication from scrimmage-team.md here.}
+
 
 Your backlog item IDs are: #{X}, #{Y}.
 ````
@@ -212,6 +324,8 @@ Pick the first unused name from each pool. When spawning a second agent in the s
 | **I**ntegration Engineer | Irene, Isaac, Ida, Igor, Imelda, Ivan, Ingrid, Isaias |
 | **D**BA | Danny, Dolly, Dean, Debby, Don, Delta, Dorian, Diana |
 | **F**rontend Engineer | Fiona, Fred, Florence, Franklin, Fay, Felix, Francine, Fernand |
+| **T**echnical Writer | Tammy, Teddy, Teresa, Tony, Tara, Thomas, Tina, Tobias |
+| **U**I/UX Designer | Una, Ulric, Ursula, Ugo |
 | **P**eer **R**eviewer | Pierre (because it sounds like "PR")
 
 Examples:
@@ -292,8 +406,7 @@ If the Scrimmage Master crashes or becomes unresponsive, **any agent can spawn a
 Any agent who detects the SM is down should:
 
 1. **Check the SM's tmux pane** to confirm the crash (look for exit status or error).
-2. **Agree with their teammates** which of them is going to spawn the new SM.
-3. **Spawn a new Scrimmage Master** using the Task tool:
+2. **Spawn a new Scrimmage Master** using the Task tool:
    ```
    Task(
      name="Sam_Scrimmage_Master",
@@ -303,7 +416,7 @@ Any agent who detects the SM is down should:
      prompt="You are Sam_Scrimmage_Master, replacing a crashed SM instance. Read CLAUDE.md and scrimmage-team.md, then broadcast a status check to all teammates. Check the backlog for current sprint state. Resume coordination."
    )
    ```
-4. **Message the new SM** with context about what you were working on and any blockers.
+3. **Message the new SM** with context about what you were working on and any blockers.
 
 ### What the new SM should do on startup
 
