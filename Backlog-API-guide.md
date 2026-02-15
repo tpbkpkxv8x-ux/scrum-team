@@ -21,6 +21,7 @@ epic.assign("Barry")
 epic.update_status("ready")
 epic.update_status("in_progress")
 epic.update_status("review")
+epic.update_status("merged")
 epic.update_status("done", result="Deployed to prod")
 
 # Refine it
@@ -42,7 +43,10 @@ bugs = bl.list_items(item_type="bug", status="backlog")
 children = bl.list_items(parent=epic.id)
 top_level = bl.list_items(top_level_only=True)
 
-# Check an item's audit trail
+# Get just the comments on an item
+comments = epic.get_comments()
+
+# Check an item's full audit trail
 events = epic.get_history()
 
 # Reload from DB to pick up changes made by other agents
@@ -59,7 +63,7 @@ Every method that creates or returns items gives you a `BacklogItem` with these 
 | `title` | `str` | Short summary. Must not be empty. |
 | `description` | `str` or `None` | Detailed requirements or acceptance criteria. |
 | `item_type` | `str` | One of: `story`, `bug`, `task`, `spike`. |
-| `status` | `str` | One of: `backlog`, `ready`, `in_progress`, `review`, `done`. |
+| `status` | `str` | One of: `backlog`, `ready`, `in_progress`, `review`, `merged`, `done`. |
 | `priority` | `int` | Higher = more important. Must be an integer. |
 | `sprint` | `str` or `None` | Sprint name, or `None` if unscheduled. |
 | `assigned_to` | `str` or `None` | Agent name, or `None` if unassigned. |
@@ -72,9 +76,13 @@ Every method that creates or returns items gives you a `BacklogItem` with these 
 ## Status Flow
 
 ```
-backlog <--> ready <--> in_progress <--> review --> done
+backlog <--> ready <--> in_progress <--> review --> merged --> done
+                                    \                  |
+                                     `<--- (rework) <--'
 ```
 
+`review` can also transition directly to `done` (skipping `merged`).
+`merged` can go back to `in_progress` if rework is needed after merge.
 `done` is terminal — no transitions out of it.
 
 ## Item Types
@@ -465,9 +473,30 @@ bl.list_items(top_level_only=True)               # top-level items only
 
 ---
 
+### `get_comments()`
+
+Get only the comment events for an item, ordered chronologically. This is a convenience method that filters the event log to return just comments, without status changes, assignments, etc.
+
+```python
+# On the item:
+comments = item.get_comments()
+
+# On the database:
+comments = bl.get_comments(item.id)
+
+for c in comments:
+    print(c["agent_id"], c["comment"], c["created_at"])
+```
+
+**Returns:** `list[dict]` — each dict has keys: `id`, `item_id`, `event_type`, `old_value`, `new_value`, `agent_id`, `comment`, `created_at`. The `event_type` is always `"comment"`.
+
+**Raises:** `LookupError` if the item has never existed (items that were deleted still return their comments).
+
+---
+
 ### `get_history()`
 
-Get an item's full event log, ordered chronologically.
+Get an item's full event log including comments, ordered chronologically.
 
 ```python
 # On the item:

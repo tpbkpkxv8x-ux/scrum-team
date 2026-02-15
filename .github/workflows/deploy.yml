@@ -1,0 +1,130 @@
+# =============================================================================
+# Deploy Pipeline — Deploy to AWS after CI passes
+# =============================================================================
+#
+# Prerequisites:
+#   1. Set up AWS OIDC in your account:
+#      - Create an IAM OIDC provider for token.actions.githubusercontent.com
+#      - Create a role (e.g., GitHubActionsDeployRole) with:
+#        - Trust policy allowing your repo's GitHub Actions
+#        - Permissions to deploy your stacks
+#   2. Update the env vars below with your account details
+#
+# For detailed OIDC setup instructions, see:
+#   https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:  # Manual trigger
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel in-progress deploys
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+env:
+  AWS_REGION: eu-west-1          # TODO: set your region
+  # AWS_ACCOUNT_ID: 123456789012  # TODO: uncomment and set your account ID
+  # OIDC_ROLE_ARN: arn:aws:iam::123456789012:role/GitHubActionsDeployRole  # TODO: set your role ARN
+
+jobs:
+  check-ci:
+    name: Verify CI passed
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - run: echo "CI passed, proceeding with deploy"
+
+  prepare:
+    name: Prepare deployment
+    needs: check-ci
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.stage.outputs.name }}
+      environment: ${{ steps.stage.outputs.environment }}
+    steps:
+      - id: stage
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "name=prod" >> "$GITHUB_OUTPUT"
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="${{ github.head_ref || github.ref_name }}"
+            STAGE=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | cut -c1-20)
+            echo "name=$STAGE" >> "$GITHUB_OUTPUT"
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: Deploy to ${{ needs.prepare.outputs.stage }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: ${{ needs.prepare.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: Uncomment and configure OIDC credentials
+      # - name: Configure AWS credentials (OIDC)
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: ${{ env.OIDC_ROLE_ARN }}
+      #     aws-region: ${{ env.AWS_REGION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: infra/package-lock.json  # TODO: customize
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt  # TODO: customize
+          cd infra && npm ci               # TODO: customize
+
+      # TODO: Add your deployment phases here
+      # Phase 1: Deploy infrastructure
+      # - name: Deploy infrastructure
+      #   run: |
+      #     cd infra
+      #     npx cdk deploy --all \
+      #       --context stageName="${{ needs.prepare.outputs.stage }}" \
+      #       --require-approval never
+
+      # Phase 2: Build application
+      # - name: Build frontend
+      #   run: |
+      #     cd frontend && npm ci && npm run build
+
+      # Phase 3: Deploy application assets
+      # - name: Deploy frontend
+      #   run: |
+      #     cd infra
+      #     npx cdk deploy FrontendStack-${{ needs.prepare.outputs.stage }}
+
+      - name: Placeholder
+        run: echo "TODO - Add your deploy commands above"
+
+  smoke-tests:
+    name: Smoke tests
+    needs: [prepare, deploy]
+    runs-on: ubuntu-latest
+    if: always() && needs.deploy.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      # TODO: Add smoke test commands
+      - name: Placeholder
+        run: echo "TODO - Add smoke test commands"

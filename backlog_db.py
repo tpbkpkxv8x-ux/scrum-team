@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 """
 Product Backlog — SQLite-backed scrimmage backlog for parallel agent teams.
 
@@ -22,16 +23,24 @@ from typing import Any, Self
 # ---------------------------------------------------------------------------
 
 VALID_ITEM_TYPES = {"story", "bug", "task", "spike"}
-VALID_STATUSES = {"backlog", "ready", "in_progress", "review", "done"}
+VALID_STATUSES = {"backlog", "ready", "in_progress", "review", "merged", "done", "parked"}
 STATUS_TRANSITIONS: dict[str, set[str]] = {
-    "backlog": {"ready"},
-    "ready": {"in_progress", "backlog"},
-    "in_progress": {"review", "ready"},
-    "review": {"done", "in_progress"},
+    "backlog": {"ready", "parked"},
+    "ready": {"in_progress", "backlog", "parked"},
+    "in_progress": {"review", "ready", "parked"},
+    "review": {"merged", "done", "in_progress", "parked"},
+    "merged": {"done", "in_progress", "parked"},
     "done": set(),
+    "parked": {"backlog"},
 }
 
-DEFAULT_DB_PATH = Path("backlog.db")
+_DB_FILENAME = "backlog.db"
+
+# Resolve default path relative to this module's location (repo root),
+# not the caller's CWD.  This prevents agents in worktrees or other
+# directories from silently creating an empty DB.
+_MODULE_DIR = Path(__file__).resolve().parent
+DEFAULT_DB_PATH = _MODULE_DIR / _DB_FILENAME
 
 _UNSET = object()  # sentinel for "parameter not passed"
 
@@ -135,6 +144,11 @@ class BacklogItem:
         self.__dict__.update(fresh.__dict__)
         return self
 
+    def get_comments(self) -> list[dict[str, Any]]:
+        if self._backlog is None:
+            raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
+        return self._backlog.get_comments(self.id)
+
     def get_history(self) -> list[dict[str, Any]]:
         if self._backlog is None:
             raise RuntimeError("BacklogItem is not bound to a ProductBacklog")
@@ -158,7 +172,9 @@ def get_backlog_db(
 
     Parameters
     ----------
-    db_path : path to the SQLite database file.
+    db_path : path to the SQLite database file.  Defaults to
+        ``backlog.db`` next to this module (the repo root), so it works
+        from any CWD.
     agent : short agent name (e.g. "Barry"). Used as a prefix for the
         full agent identity recorded in all audit-trail events.
     """
@@ -625,6 +641,24 @@ class ProductBacklog:
         sql += " ORDER BY priority DESC, id"
         rows = self._conn.execute(sql, params).fetchall()
         return [self._row_to_item(r) for r in rows]
+
+    def get_comments(self, item_id: int) -> list[dict[str, Any]]:
+        """Return comment events for a backlog item, ordered chronologically."""
+        rows = self._conn.execute(
+            "SELECT * FROM backlog_events WHERE item_id = ? AND event_type = 'comment' ORDER BY id",
+            (item_id,),
+        ).fetchall()
+        if not rows:
+            # No comments — check whether the item exists at all.
+            if self._conn.execute(
+                "SELECT id FROM backlog_items WHERE id = ?", (item_id,)
+            ).fetchone() is None:
+                # Not in items table; check if it was deleted (events still exist)
+                if not self._conn.execute(
+                    "SELECT id FROM backlog_events WHERE item_id = ?", (item_id,)
+                ).fetchone():
+                    raise LookupError(f"Backlog item {item_id} not found")
+        return [dict(r) for r in rows]
 
     def get_history(self, item_id: int) -> list[dict[str, Any]]:
         rows = self._conn.execute(

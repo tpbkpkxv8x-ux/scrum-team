@@ -2,6 +2,16 @@
 name = "scrimmage-team"
 version = "0.1.0"
 requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.34",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "moto[dynamodb]>=5.0",
+]
 
 [tool.ruff]
 target-version = "py311"
@@ -16,5 +26,20 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 
+[[tool.mypy.overrides]]
+module = [
+    "boto3",
+    "boto3.*",
+    "botocore",
+    "botocore.*",
+    "moto",
+    "moto.*",
+]
+ignore_missing_imports = true
+disallow_any_unimported = false
+
 [tool.pytest.ini_options]
 testpaths = ["."]
+markers = [
+    "e2e: end-to-end smoke tests against a deployed AWS environment (not run by default)",
+]

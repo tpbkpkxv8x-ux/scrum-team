@@ -94,7 +94,7 @@ class TestAdd:
 
     def test_add_bool_priority_rejected(self, db: ProductBacklog) -> None:
         with pytest.raises(TypeError, match="Priority must be an integer"):
-            db.add("Story", priority=True)  # type: ignore[arg-type]
+            db.add("Story", priority=True)
 
     def test_add_nonexistent_parent(self, db: ProductBacklog) -> None:
         with pytest.raises(LookupError, match="Parent item 999 not found"):
@@ -160,6 +160,16 @@ class TestUpdateStatus:
         item = db.update_status(item.id, "done")
         assert item.status == "done"
 
+    def test_happy_path_via_merged(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.update_status(item.id, "ready")
+        db.update_status(item.id, "in_progress")
+        db.update_status(item.id, "review")
+        item = db.update_status(item.id, "merged")
+        assert item.status == "merged"
+        item = db.update_status(item.id, "done")
+        assert item.status == "done"
+
     def test_invalid_transition(self, db: ProductBacklog) -> None:
         item = db.add("Story")
         with pytest.raises(ValueError, match="Cannot transition"):
@@ -197,9 +207,33 @@ class TestUpdateStatus:
         db.update_status(item.id, "in_progress")
         db.update_status(item.id, "review")
         db.update_status(item.id, "done")
-        for status in ("backlog", "ready", "in_progress", "review"):
+        for status in ("backlog", "ready", "in_progress", "review", "merged"):
             with pytest.raises(ValueError, match="Cannot transition"):
                 db.update_status(item.id, status)
+
+    def test_merged_to_in_progress(self, db: ProductBacklog) -> None:
+        """merged can go back to in_progress if rework is needed."""
+        item = db.add("Story")
+        db.update_status(item.id, "ready")
+        db.update_status(item.id, "in_progress")
+        db.update_status(item.id, "review")
+        db.update_status(item.id, "merged")
+        updated = db.update_status(item.id, "in_progress")
+        assert updated.status == "in_progress"
+
+    def test_merged_to_parked(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.update_status(item.id, "ready")
+        db.update_status(item.id, "in_progress")
+        db.update_status(item.id, "review")
+        db.update_status(item.id, "merged")
+        updated = db.update_status(item.id, "parked")
+        assert updated.status == "parked"
+
+    def test_backlog_to_merged_invalid(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        with pytest.raises(ValueError, match="Cannot transition"):
+            db.update_status(item.id, "merged")
 
     def test_updated_at_changes(self, db: ProductBacklog) -> None:
         item = db.add("Story")
@@ -241,7 +275,7 @@ class TestUpdateStatus:
     def test_non_string_result_rejected(self, db: ProductBacklog) -> None:
         item = db.add("Story")
         with pytest.raises(TypeError, match="Result must be a string or None"):
-            db.update_status(item.id, "ready", result={"k": "v"})  # type: ignore[arg-type]
+            db.update_status(item.id, "ready", result={"k": "v"})
 
     def test_status_events(self, db: ProductBacklog) -> None:
         item = db.add("Story")
@@ -292,7 +326,7 @@ class TestUpdatePriority:
     def test_bool_priority_rejected(self, db: ProductBacklog) -> None:
         item = db.add("Story")
         with pytest.raises(TypeError, match="Priority must be an integer"):
-            db.update_priority(item.id, True)  # type: ignore[arg-type]
+            db.update_priority(item.id, True)
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +508,92 @@ class TestComment:
         result = db.comment(item.id, "Hello")
         assert isinstance(result, BacklogItem)
         assert result.id == item.id
+
+
+# ---------------------------------------------------------------------------
+# get_comments
+# ---------------------------------------------------------------------------
+
+
+class TestGetComments:
+    def test_no_comments(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        assert db.get_comments(item.id) == []
+
+    def test_single_comment(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.comment(item.id, "First note")
+        comments = db.get_comments(item.id)
+        assert len(comments) == 1
+        assert comments[0]["comment"] == "First note"
+        assert comments[0]["event_type"] == "comment"
+        assert comments[0]["item_id"] == item.id
+
+    def test_multiple_comments_ordered(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.comment(item.id, "Alpha")
+        db.comment(item.id, "Beta")
+        db.comment(item.id, "Gamma")
+        comments = db.get_comments(item.id)
+        assert len(comments) == 3
+        assert [c["comment"] for c in comments] == ["Alpha", "Beta", "Gamma"]
+
+    def test_excludes_non_comment_events(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.update_status(item.id, "ready")
+        db.comment(item.id, "Only this")
+        db.assign(item.id, "Barry")
+        comments = db.get_comments(item.id)
+        assert len(comments) == 1
+        assert comments[0]["comment"] == "Only this"
+
+    def test_not_found(self, db: ProductBacklog) -> None:
+        with pytest.raises(LookupError, match="Backlog item 999 not found"):
+            db.get_comments(999)
+
+    def test_deleted_item_returns_comments(self, db: ProductBacklog) -> None:
+        item = db.add("Doomed")
+        db.comment(item.id, "Before deletion")
+        item_id = item.id
+        db.delete(item_id)
+        comments = db.get_comments(item_id)
+        assert len(comments) == 1
+        assert comments[0]["comment"] == "Before deletion"
+
+    def test_records_agent_id(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.comment(item.id, "By agent")
+        comments = db.get_comments(item.id)
+        assert comments[0]["agent_id"] is not None
+        assert comments[0]["agent_id"].startswith("Test/pid=")
+
+    def test_deleted_item_no_comments_returns_empty(self, db: ProductBacklog) -> None:
+        item = db.add("Doomed")
+        item_id = item.id
+        db.delete(item_id)
+        comments = db.get_comments(item_id)
+        assert comments == []
+
+    def test_comments_isolated_between_items(self, db: ProductBacklog) -> None:
+        a = db.add("Item A")
+        b = db.add("Item B")
+        db.comment(a.id, "A's comment")
+        db.comment(b.id, "B's comment")
+        comments_a = db.get_comments(a.id)
+        comments_b = db.get_comments(b.id)
+        assert len(comments_a) == 1
+        assert comments_a[0]["comment"] == "A's comment"
+        assert len(comments_b) == 1
+        assert comments_b[0]["comment"] == "B's comment"
+
+    def test_via_backlog_item_method(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        item.comment("Hello")
+        item.comment("World")
+        comments = item.get_comments()
+        assert len(comments) == 2
+        assert comments[0]["comment"] == "Hello"
+        assert comments[1]["comment"] == "World"
 
 
 # ---------------------------------------------------------------------------
@@ -1234,6 +1354,27 @@ class TestHistory:
             "status_change",
         ]
 
+    def test_full_lifecycle_via_merged(self, db: ProductBacklog) -> None:
+        item = db.add("Story")
+        db.assign(item.id, "Barry")
+        db.update_status(item.id, "ready")
+        db.update_status(item.id, "in_progress")
+        db.update_status(item.id, "review")
+        db.update_status(item.id, "merged")
+        db.update_status(item.id, "done", result="Deployed!")
+
+        events = db.get_history(item.id)
+        types = [e["event_type"] for e in events]
+        assert types == [
+            "created",
+            "assigned",
+            "status_change",
+            "status_change",
+            "status_change",
+            "status_change",
+            "status_change",
+        ]
+
     def test_get_history_on_deleted_item(self, db: ProductBacklog) -> None:
         """get_history() returns preserved events for deleted items."""
         item = db.add("Doomed")
@@ -1305,6 +1446,10 @@ class TestUnboundBacklogItem:
     def test_refresh_raises(self, unbound: BacklogItem) -> None:
         with pytest.raises(RuntimeError, match="not bound"):
             unbound.refresh()
+
+    def test_get_comments_raises(self, unbound: BacklogItem) -> None:
+        with pytest.raises(RuntimeError, match="not bound"):
+            unbound.get_comments()
 
     def test_get_history_raises(self, unbound: BacklogItem) -> None:
         with pytest.raises(RuntimeError, match="not bound"):

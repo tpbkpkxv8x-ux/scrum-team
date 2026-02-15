@@ -1,0 +1,90 @@
+# =============================================================================
+# CI Pipeline — Lint, test, and build on every push/PR to master
+# =============================================================================
+# Customize the commands in each job for your project's tech stack.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt  # TODO: customize for your project
+
+      - name: Lint
+        run: python3 -m ruff check .  # TODO: customize linter
+
+      - name: Type check
+        run: python3 -m mypy .  # TODO: customize type checker
+
+      - name: Test
+        run: python3 -m pytest -x -v  # TODO: customize test command
+
+  infra:
+    name: Infrastructure (CDK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: infra/package-lock.json  # TODO: customize path
+
+      - name: Install dependencies
+        run: cd infra && npm ci  # TODO: customize
+
+      - name: Test
+        run: cd infra && npx jest  # TODO: customize test command
+
+  frontend:
+    name: Frontend (React/TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json  # TODO: customize path
+
+      - name: Install dependencies
+        run: cd frontend && npm ci  # TODO: customize
+
+      - name: Type check
+        run: cd frontend && npx tsc --noEmit  # TODO: customize
+
+      - name: Test
+        run: cd frontend && npx vitest run  # TODO: customize test command
+
+  shellcheck:
+    name: Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck
+        run: |
+          # shellcheck is pre-installed on ubuntu-latest
+          shellcheck --severity=warning \
+            branch_deploy.sh \
+            branch_teardown.sh \
+            tools/*.sh
+          # TODO: add or remove scripts as needed

@@ -3,3 +3,12 @@
 *.db-shm
 __pycache__/
 .DS_Store
+node_modules/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.js.map
+cdk.out/
+dist/
+infra/cdk.out.*/
+notes/sm-state.md

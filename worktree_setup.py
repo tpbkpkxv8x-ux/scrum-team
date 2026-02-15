@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Git worktree manager for Hisser scrimmage team agents.
+Git worktree manager for scrimmage team agents.
 
 Creates isolated worktrees with shared symlinked resources, per-agent git
 config, and automatic dependency installation — so each agent can slither
@@ -298,7 +298,7 @@ def cmd_prune(_args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Git worktree manager for Hisser scrimmage team agents.",
+        description="Git worktree manager for scrimmage team agents.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
