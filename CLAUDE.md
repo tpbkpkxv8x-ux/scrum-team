@@ -32,7 +32,7 @@ Monorepo layout:
 - Backend code goes in `/backend` with tests alongside.
 - Frontend code goes in `/frontend` with tests alongside.
 - The product owner will be briefed by the user at runtime — do not assume what the product is.
-- The **Product Backlog** lives in `scrimmage/backlog.db` (SQLite, WAL mode), managed via `scrimmage/backlog_db.py`. Import `get_backlog_db` to access it. The DB supports concurrent read/write by multiple agents.
+- The **Product Backlog** lives in `scrimmage/backlog.db`, managed via `scrimmage/backlog_db.py`.
 
 ## Worktree Config
 
@@ -48,10 +48,6 @@ deps:
   - dir: frontend
     cmd: npm ci
 ```
-
-## Local Verification Pipeline
-
-See `scrimmage/scrimmage-team.md` § Local Verification Pipeline for the standard checks to run before requesting review.
 
 ## Environment
 
