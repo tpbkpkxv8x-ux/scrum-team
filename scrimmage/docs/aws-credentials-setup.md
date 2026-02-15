@@ -122,7 +122,7 @@ MFA setup complete!
 Every time you want to deploy or use AWS, run:
 
 ```bash
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 ```
 
 **What happens:**
@@ -134,7 +134,7 @@ source tools/assume-deploy-role.sh
 
 **Example session:**
 ```bash
-$ source tools/assume-deploy-role.sh
+$ source scrimmage/tools/assume-deploy-role.sh
 Fetching MFA device...
 MFA device found: arn:aws:iam::<ACCOUNT_ID>:mfa/<iam-username>
 
@@ -150,7 +150,7 @@ You can now run AWS commands (aws, cdk, etc.) and they will use these credential
 Examples:
   aws sts get-caller-identity                    # Verify you're using the role
   cd infra && npx cdk deploy --all               # Deploy with temp credentials
-  ./branch_deploy.sh ../worktrees/my-feature     # Branch deploy with temp creds
+  ./scrimmage/branch_deploy.sh ../worktrees/my-feature     # Branch deploy with temp creds
 
 Remember: These credentials expire in 12 hours!
 ```
@@ -178,20 +178,20 @@ Notice the ARN contains `assumed-role/<project-name>-Developer` — this confirm
 
 #### Deploy CDK stacks:
 ```bash
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 cd infra
 npx cdk deploy --all
 ```
 
 #### Branch deploy:
 ```bash
-source tools/assume-deploy-role.sh
-./branch_deploy.sh ../worktrees/my-feature
+source scrimmage/tools/assume-deploy-role.sh
+./scrimmage/branch_deploy.sh ../worktrees/my-feature
 ```
 
 #### Shorter session (1 hour):
 ```bash
-source tools/assume-deploy-role.sh 3600
+source scrimmage/tools/assume-deploy-role.sh 3600
 ```
 
 The script accepts an optional duration argument (in seconds):
@@ -202,9 +202,9 @@ The script accepts an optional duration argument (in seconds):
 
 ---
 
-## Integration with `branch_deploy.sh`
+## Integration with `scrimmage/branch_deploy.sh`
 
-The `branch_deploy.sh` script now checks your AWS credentials at startup:
+The `scrimmage/branch_deploy.sh` script now checks your AWS credentials at startup:
 
 **If using temporary credentials (recommended):**
 ```
@@ -226,7 +226,7 @@ Static access keys are no longer permitted because:
 
 To deploy, obtain temporary credentials with:
 
-  source tools/assume-deploy-role.sh
+  source scrimmage/tools/assume-deploy-role.sh
 
 Then re-run this script.
 
@@ -234,7 +234,7 @@ Then re-run this script.
 [WARN] (use only in exceptional circumstances with approval)
 ```
 
-The script will **exit immediately** unless you run `source tools/assume-deploy-role.sh` first.
+The script will **exit immediately** unless you run `source scrimmage/tools/assume-deploy-role.sh` first.
 
 > **Note:** Static credentials are blocked by default. The IAM user has assume-only permissions and cannot deploy infrastructure directly.
 
@@ -301,7 +301,7 @@ The security token included in the request is expired
 **Solution:**
 Your temporary credentials have expired. Re-run the helper script:
 ```bash
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 ```
 
 ---
@@ -312,14 +312,14 @@ source tools/assume-deploy-role.sh
 You ran the script but AWS commands still fail or use the wrong credentials.
 
 **Causes:**
-- You ran the script without `source` (e.g., `./tools/assume-deploy-role.sh`)
+- You ran the script without `source` (e.g., `./scrimmage/tools/assume-deploy-role.sh`)
 - Environment variables didn't propagate to the current shell
 
 **Solution:**
 Always use `source` or `.` to run the script:
 ```bash
-source tools/assume-deploy-role.sh   # Correct
-./tools/assume-deploy-role.sh        # Wrong (runs in subshell)
+source scrimmage/tools/assume-deploy-role.sh   # Correct
+./scrimmage/tools/assume-deploy-role.sh        # Wrong (runs in subshell)
 ```
 
 The `source` keyword ensures environment variables are set in your **current** shell, not a subshell.
@@ -369,12 +369,12 @@ aws sts get-caller-identity
 
 ### Q: Do I need to run this every time I open a new terminal?
 
-**Yes.** Environment variables are local to your shell session. If you open a new terminal window or tab, you'll need to run `source tools/assume-deploy-role.sh` again.
+**Yes.** Environment variables are local to your shell session. If you open a new terminal window or tab, you'll need to run `source scrimmage/tools/assume-deploy-role.sh` again.
 
 **Tip:** Some developers add a shell alias for convenience:
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-alias aws-assume='source <repo-path>/tools/assume-deploy-role.sh'
+alias aws-assume='source <repo-path>/scrimmage/tools/assume-deploy-role.sh'
 ```
 
 Then you can just run:
@@ -411,7 +411,7 @@ aws-assume
 
 ### Q: Can I skip MFA and just use static credentials?
 
-**No.** The project **requires MFA-protected temporary credentials for all AWS operations**. Deploy scripts (`branch_deploy.sh`, `branch_teardown.sh`) will reject static credentials and exit with an error unless you explicitly override with `<PROJECT_NAME>_ALLOW_STATIC=1` (not recommended).
+**No.** The project **requires MFA-protected temporary credentials for all AWS operations**. Deploy scripts (`scrimmage/branch_deploy.sh`, `scrimmage/branch_teardown.sh`) will reject static credentials and exit with an error unless you explicitly override with `<PROJECT_NAME>_ALLOW_STATIC=1` (not recommended).
 
 **Why MFA + temporary credentials are mandatory:**
 - If your laptop is stolen, the thief can't access AWS without your MFA device
@@ -442,14 +442,14 @@ This setup only applies to **local development**. CI/CD already uses best practi
 **Old workflow:**
 ```bash
 # Static credentials in ~/.aws/credentials (insecure)
-./branch_deploy.sh ../worktrees/my-feature
+./scrimmage/branch_deploy.sh ../worktrees/my-feature
 ```
 
 **New workflow:**
 ```bash
 # Temporary credentials with MFA (secure)
-source tools/assume-deploy-role.sh
-./branch_deploy.sh ../worktrees/my-feature
+source scrimmage/tools/assume-deploy-role.sh
+./scrimmage/branch_deploy.sh ../worktrees/my-feature
 ```
 
 **Benefits:**

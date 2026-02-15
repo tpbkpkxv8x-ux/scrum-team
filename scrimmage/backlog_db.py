@@ -36,9 +36,9 @@ STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 _DB_FILENAME = "backlog.db"
 
-# Resolve default path relative to this module's location (repo root),
-# not the caller's CWD.  This prevents agents in worktrees or other
-# directories from silently creating an empty DB.
+# Resolve default path relative to this module's location (the ``scrimmage/``
+# directory), not the caller's CWD.  This prevents agents in worktrees or
+# other directories from silently creating an empty DB.
 _MODULE_DIR = Path(__file__).resolve().parent
 DEFAULT_DB_PATH = _MODULE_DIR / _DB_FILENAME
 
@@ -173,8 +173,8 @@ def get_backlog_db(
     Parameters
     ----------
     db_path : path to the SQLite database file.  Defaults to
-        ``backlog.db`` next to this module (the repo root), so it works
-        from any CWD.
+        ``backlog.db`` next to this module (the ``scrimmage/`` directory),
+        so it works from any CWD.
     agent : short agent name (e.g. "Barry"). Used as a prefix for the
         full agent identity recorded in all audit-trail events.
     """

@@ -8,7 +8,7 @@
 # procedure.
 #
 # Usage:
-#   ./tools/check_key_status.sh <iam-username>
+#   ./scrimmage/tools/check_key_status.sh <iam-username>
 #
 # =============================================================================
 

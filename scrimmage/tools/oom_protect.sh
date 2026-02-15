@@ -3,7 +3,7 @@
 # Lowers oom_score_adj so the OOM killer prefers other targets.
 #
 # Must be run as root:
-#   sudo ./tools/oom_protect.sh
+#   sudo ./scrimmage/tools/oom_protect.sh
 #
 # Options:
 #   --score N    : oom_score_adj value (default: -500, range: -1000 to 1000)

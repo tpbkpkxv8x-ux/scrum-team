@@ -40,7 +40,7 @@ Look at the `CreateDate` and compare with your deactivation date. Ensure at leas
 
 ```bash
 # Check current status
-./tools/check_key_status.sh
+./scrimmage/tools/check_key_status.sh
 ```
 
 **Expected output:**
@@ -56,7 +56,7 @@ If status is still `Active`, the deactivation step was not completed. **STOP** a
 
 ```bash
 # Test the assume-role flow
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 
 # Enter MFA token
 
@@ -120,7 +120,7 @@ OR if other keys exist, the deleted key should not be in the list.
 
 ```bash
 # Assume role again
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 
 # Enter MFA token
 
@@ -256,11 +256,11 @@ as part of our IAM security improvements.
 
 All AWS operations now require the assume-role flow with MFA:
 
-1. Run: source tools/assume-deploy-role.sh
+1. Run: source scrimmage/tools/assume-deploy-role.sh
 2. Enter your MFA token
 3. Temporary credentials are valid for 1 hour (renewable up to 12 hours)
 
-See docs/assume-role-verification.md for details.
+See scrimmage/docs/assume-role-verification.md for details.
 ```
 
 ## Rollback

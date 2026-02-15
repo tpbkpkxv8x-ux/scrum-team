@@ -3,11 +3,11 @@
 ## Key Behaviours
 
 - Consults the product owner's backlog to decide which agents to spawn.
-- **Runs pull-based standups** (no broadcast). SM compiles status from: (1) `python3 tools/generate_sm_state.py --sprint ... --team ...` (generates `notes/sm-state.md`), (2) backlog item comments, (3) `git log --since="1 hour ago" --all --oneline`, (4) `python3 worktree_setup.py list`. Only messages an agent if action is needed (unblock, reassign, stuck >30 min with no commits or comments). Cadence: every 60 min.
+- **Runs pull-based standups** (no broadcast). SM compiles status from: (1) `python3 scrimmage/tools/generate_sm_state.py --sprint ... --team ...` (generates `scrimmage/notes/sm-state.md`), (2) backlog item comments, (3) `git log --since="1 hour ago" --all --oneline`, (4) `python3 scrimmage/worktree_setup.py list`. Only messages an agent if action is needed (unblock, reassign, stuck >30 min with no commits or comments). Cadence: every 60 min.
 - **Periodically verifies backlog statuses** match actual progress — agents forget, just like people.
 - **Selects the right model tier** when spawning agents. Haiku for mechanical/routine tasks (watching CI, polling deploy status, running tests, deploy verification, cleanup, status updates). Sonnet for standard coding with clear scope. Opus for complex reasoning, architecture, debugging novel issues, code review.
 - **Monitors memory pressure.** Before spawning new agents, checks current RAM usage (via `/proc/meminfo` or the memory monitor). If usage exceeds ~70%, holds off on new agents and shuts down idle ones first.
-- Gives the user visibility of what's going on by running in tmux windows for the user: 1) The memory monitor (`tools/memory_monitor.sh`); 2) The chat monitor (`tools/chat-monitor/chat_monitor.py`); 3) The scrimmage board (`tools/scrimmage-board/scrimmage_board.py --sprint <sprint>`).
+- Gives the user visibility of what's going on by running in tmux windows for the user: 1) The memory monitor (`scrimmage/tools/memory_monitor.sh`); 2) The chat monitor (`scrimmage/tools/chat-monitor/chat_monitor.py`); 3) The scrimmage board (`scrimmage/tools/scrimmage-board/scrimmage_board.py --sprint <sprint>`).
 
 ## Scrimmage Master Discipline
 
@@ -19,18 +19,18 @@
 
 ## SM Startup Checklist
 
-1. Launch tmux monitors (use haiku): `python3 tools/chat-monitor/chat_monitor.py` and `python3 tools/scrimmage-board/scrimmage_board.py`.
+1. Launch tmux monitors (use haiku): `python3 scrimmage/tools/chat-monitor/chat_monitor.py` and `python3 scrimmage/tools/scrimmage-board/scrimmage_board.py`.
 2. `TeamCreate` before spawning agents.
 3. Spawn PO as teammate (model `opus`).
-4. Include Communication guidelines from `scrimmage-team.md` in every agent's startup prompt.
+4. Include Communication guidelines from `scrimmage/scrimmage-team.md` in every agent's startup prompt.
 
 ## State Persistence
 
-SM state is generated automatically by `tools/generate_sm_state.py`.
-Run it to populate `notes/sm-state.md` with current sprint status,
+SM state is generated automatically by `scrimmage/tools/generate_sm_state.py`.
+Run it to populate `scrimmage/notes/sm-state.md` with current sprint status,
 active agents, file ownership, backlog comments, recent events, and pending actions.
 
-    python3 tools/generate_sm_state.py --sprint {sprint-name} --team {team-name}
+    python3 scrimmage/tools/generate_sm_state.py --sprint {sprint-name} --team {team-name}
 
 Run this:
 - Before each standup (to get fresh data for compilation)
@@ -39,7 +39,7 @@ Run this:
 
 ## Launching the Team
 
-1. **The first agent to start takes on the role of scrimmage master (SM), as servant leader.** The scrimmage master reads `CLAUDE.md` and the backlog (or asks the product owner to create one).
+1. **The first agent to start takes on the role of scrimmage master (SM), as servant leader.** The scrimmage master reads `CLAUDE.md` and `scrimmage/scrimmage-team.md`, and the backlog (or asks the product owner to create one).
 2. **SM spawns the product owner** to gather/refine requirements if needed.
 3. **SM spawns engineers** based on the work to be done, following the spawning checklist and budget below.
 4. **SM assigns backlog items** to agents before spawning them: `bl.assign(item_id, "AgentName")`. Include the specific backlog item IDs in the agent's startup prompt.
@@ -61,7 +61,7 @@ Before spawning an agent, SM must run through this checklist:
 1. **Check memory**: If system memory > 60%, don't spawn. Shut down idle agents first.
 2. **Check for idle agents**: If an existing idle agent has the right skills, give them the work instead of spawning a new agent.
 3. **Check dependencies**: Don't spawn an agent whose work depends on another agent's unfinished item. Wait until the dependency is merged to master. (Spawn-on-merge: when item A merges and unblocks item B, *then* spawn the agent for item B.)
-4. **Check file overlap**: Two agents in the same role only if they touch completely different files (enforced by file ownership — see scrimmage-team.md § Conflict Prevention).
+4. **Check file overlap**: Two agents in the same role only if they touch completely different files (enforced by file ownership — see scrimmage/scrimmage-team.md § Conflict Prevention).
 
 ## Deploy Verification Policy
 
@@ -76,7 +76,7 @@ SM explicitly assigns file ownership when spawning agents. Include in the startu
 **File ownership (DO NOT edit files outside your scope):**
 - You own: {list of files/dirs}
 - Off-limits: {files owned by other agents}
-- Shared (coordinate with SM): backlog_db.py, notes/*.md
+- Shared (coordinate with SM): scrimmage/backlog_db.py, scrimmage/notes/*.md
 ```
 
 No overlapping edits. If two items need to modify the same file, SM sequences them (item B starts after item A merges).
@@ -85,8 +85,8 @@ No overlapping edits. If two items need to modify the same file, SM sequences th
 
 ### What the new SM should do on startup
 
-1. Read `CLAUDE.md` and `scrimmage-team.md`.
-2. Run `python3 tools/generate_sm_state.py --sprint {sprint} --team {team}` and read `notes/sm-state.md` for a snapshot of coordination state.
+1. Read `CLAUDE.md` and `scrimmage/scrimmage-team.md`.
+2. Run `python3 scrimmage/tools/generate_sm_state.py --sprint {sprint} --team {team}` and read `scrimmage/notes/sm-state.md` for a snapshot of coordination state.
 3. Read the backlog: `bl.list_items(sprint="{current-sprint}")` to understand current state.
 4. Read the team config: `~/.claude/teams/{team-name}/config.json` to see who's on the team.
 5. Broadcast to all teammates: "SM is back online after a crash. Send me a brief status update."
@@ -130,18 +130,18 @@ You are **{Agent_Name}**, a {role} on the scrimmage team.
 
 **Read these before starting (in order):**
 1. `CLAUDE.md` — project context, tech stack, conventions
-2. `scrimmage-team.md` — team process, Definition of Done, communication rules, backlog API
-3. `notes/{role}.md` — role-specific notes from previous agents
-4. `notes/known-issues.md` — avoid known pitfalls
+2. `scrimmage/scrimmage-team.md` — team process, Definition of Done, communication rules, backlog API
+3. `scrimmage/notes/{role}.md` — role-specific notes from previous agents
+4. `scrimmage/notes/known-issues.md` — avoid known pitfalls
 5. Your assigned backlog items — read comments on the backlog item for context from previous agents
 
 **Your worktree:** `{worktree_path}`
 **Your branch:** `{branch_name}`
 **Your backlog items:** #{X}, #{Y}
 
-Update the backlog as you work (see scrimmage-team.md § Product Backlog for the API).
+Update the backlog as you work (see scrimmage/scrimmage-team.md § Product Backlog for the API).
 Message me (SM) when you start, hit milestones, or finish.
-When done: write handoff comment on your backlog item, request review, merge, shut down (see scrimmage-team.md § Agent Lifecycle).
+When done: write handoff comment on your backlog item, request review, merge, shut down (see scrimmage/scrimmage-team.md § Agent Lifecycle).
 
 {For Peer Reviewer only, add: "For each finding, create a separate backlog item: bl.add('{severity}: {short description}', description='{details, steps to reproduce, suggested fix}', item_type='bug', sprint='{current-sprint}'). After reviewing, add a comment to each reviewed backlog item: bl.get_item(ITEM_ID).comment('Reviewed by Pierre — {verdict}. Findings: #{id1}, #{id2}')."}
 ````

@@ -69,11 +69,11 @@ Each agent handles **one backlog item**, then writes a handoff comment and exits
 > - **SM-initiated**: Agent running > 45 minutes with no progress (no commits, no backlog comments), or system memory > 70%. SM shuts down idle agents when their work queue is empty.
 > - **Blocked**: Dependency not met — write handoff comment noting the blocker, inform SM, exit. SM respawns when dependency merges.
 >
-> On any non-normal exit: write a handoff comment on the backlog item, update `notes/{role}.md` and `notes/known-issues.md`, tear down your worktree (`--force` if the branch was never merged), inform SM, then shut down.
+> On any non-normal exit: write a handoff comment on the backlog item, update `scrimmage/notes/{role}.md` and `scrimmage/notes/known-issues.md`, tear down your worktree (`--force` if the branch was never merged), inform SM, then shut down.
 
 ### Phase 1: Orient
 
-1. Read your role notes (`notes/{role}.md`), `notes/known-issues.md`, and any existing comments on your assigned backlog item.
+1. Read your role notes (`scrimmage/notes/{role}.md`), `scrimmage/notes/known-issues.md`, and any existing comments on your assigned backlog item.
 2. Verify your file ownership scope (listed in your startup prompt).
 3. Message SM that you are starting; move the backlog item to `in_progress`.
 
@@ -81,24 +81,24 @@ Each agent handles **one backlog item**, then writes a handoff comment and exits
 
 1. Create a worktree:
    ```bash
-   python3 worktree_setup.py create <agent-name> <branch-description>
+   python3 scrimmage/worktree_setup.py create <agent-name> <branch-description>
    ```
    This creates a worktree at `/workspace/{repo}-worktrees/{agent}-{description}/` on branch `feature/{agent}-{description}`.
 2. All subsequent work happens inside the worktree path. `cd` into it now.
 3. **Git identity** is set automatically by `worktree_setup.py`.
-4. **Shared files** (`backlog.db`, `notes/`, and other items listed in CLAUDE.md's Worktree Config) are symlinked to the main worktree — all agents share the same physical copies. Changes to these files are committed from the main worktree only.
+4. **Shared files** (`scrimmage/` and other items listed in CLAUDE.md's Worktree Config) are symlinked to the main worktree — all agents share the same physical copies. Changes to these files are committed from the main worktree only.
 
 ### Phase 3: Plan or Execute
 
 **Path A — Planning agent** (non-trivial: 4+ files, needs investigation, cross-cutting concerns, no existing pattern):
 
-1. Explore the codebase, write a plan to `notes/plans/{item-id}-plan.md`.
+1. Explore the codebase, write a plan to `scrimmage/notes/plans/{item-id}-plan.md`.
 2. Write a handoff comment on the backlog item summarising the plan.
 3. Jump to **Phase 8** — tear down the worktree with `--force` (no merge needed for a plan-only agent).
 
 **Path B — Executing agent** (well-scoped task, or executing an existing plan):
 
-1. If a plan file exists (`notes/plans/{item-id}-plan.md`), read it first. If the plan is wrong, write a handoff comment explaining why and exit — SM spawns a new planning agent to revise.
+1. If a plan file exists (`scrimmage/notes/plans/{item-id}-plan.md`), read it first. If the plan is wrong, write a handoff comment explaining why and exit — SM spawns a new planning agent to revise.
 2. Implement on the feature branch — **never commit directly to master**.
 3. Write tests and document code as you go.
 4. Post progress comments on the backlog item at milestones (e.g. "core logic done, starting tests").
@@ -145,7 +145,7 @@ Fix any failures before proceeding.
    ```bash
    git diff --stat origin/master..HEAD
    ```
-   Look for unexpected changes — especially deletions outside your file ownership scope. If files in `notes/`, `tools/`, or `.claude/` are deleted or replaced with symlinks, your rebase went wrong. Run `git rebase --abort` and ask SM for help.
+   Look for unexpected changes — especially deletions outside your file ownership scope. If files in `scrimmage/notes/`, `scrimmage/tools/`, or `.claude/` are deleted or replaced with symlinks, your rebase went wrong. Run `git rebase --abort` and ask SM for help.
 4. If the rebase produced conflicts and you resolved them, re-run **Phase 4** to verify nothing broke.
 5. **Stuck rebase** (can't resolve conflicts within 5 minutes):
    ```bash
@@ -184,10 +184,10 @@ Fix any failures before proceeding.
 
 1. Tear down the worktree:
    ```bash
-   python3 worktree_setup.py teardown <agent-name> <branch-description>          # merged branches
-   python3 worktree_setup.py teardown <agent-name> <branch-description> --force   # unmerged branches (plan-only, blocked, stuck rebase)
+   python3 scrimmage/worktree_setup.py teardown <agent-name> <branch-description>          # merged branches
+   python3 scrimmage/worktree_setup.py teardown <agent-name> <branch-description> --force   # unmerged branches (plan-only, blocked, stuck rebase)
    ```
-2. Update `notes/{role}.md` and `notes/known-issues.md` with lessons learned during the task.
+2. Update `scrimmage/notes/{role}.md` and `scrimmage/notes/known-issues.md` with lessons learned during the task.
 3. Write a structured handoff comment on the backlog item (if not already written):
 
        Handoff: {status — e.g. "code complete, tests passing, awaiting review"}
@@ -225,15 +225,15 @@ Keep the scrimmage master updated on the progress of your work by messaging them
 
 Agents maintain three types of shared knowledge. All are symlinked across worktrees, so every agent sees the same files.
 
-### Role notes (`notes/{role}.md`)
+### Role notes (`scrimmage/notes/{role}.md`)
 
-Each role has a shared notes file (e.g. `notes/backend-engineer.md`, `notes/frontend-engineer.md`). Use it to record anything a future agent in your role would benefit from knowing — solved problems, access quirks, codebase gotchas, patterns.
+Each role has a shared notes file (e.g. `scrimmage/notes/backend-engineer.md`, `scrimmage/notes/frontend-engineer.md`). Use it to record anything a future agent in your role would benefit from knowing — solved problems, access quirks, codebase gotchas, patterns.
 
 - **Read your role notes on startup** before starting work.
 - **Write to them throughout your work**, not just at handoff.
 - Multiple agents in the same role may edit the file concurrently — read before editing and watch for conflicts.
 
-### Known issues (`notes/known-issues.md`)
+### Known issues (`scrimmage/notes/known-issues.md`)
 
 Shared across all roles. If you discover a non-obvious issue (something that took you >5 minutes to figure out, or that other agents might hit), add it **IMMEDIATELY** — don't wait until handoff.
 
@@ -244,16 +244,16 @@ Each agent has only a limited amount of context window; each agent MUST take res
 ## Worktree management commands
 
 ```bash
-python3 worktree_setup.py create <agent> <desc>    # Create worktree + branch
-python3 worktree_setup.py teardown <agent> <desc>   # Remove worktree + branch (merged only)
-python3 worktree_setup.py teardown <agent> <desc> --force  # Force-remove even if unmerged
-python3 worktree_setup.py list                       # List all worktrees
-python3 worktree_setup.py prune                      # Clean up stale worktree refs
+python3 scrimmage/worktree_setup.py create <agent> <desc>    # Create worktree + branch
+python3 scrimmage/worktree_setup.py teardown <agent> <desc>   # Remove worktree + branch (merged only)
+python3 scrimmage/worktree_setup.py teardown <agent> <desc> --force  # Force-remove even if unmerged
+python3 scrimmage/worktree_setup.py list                       # List all worktrees
+python3 scrimmage/worktree_setup.py prune                      # Clean up stale worktree refs
 ```
 
 ## Product Backlog
 
-The backlog is stored in `./backlog.db` (SQLite with WAL mode for concurrent access) and managed via `./backlog_db.py`.
+The backlog is stored in `./scrimmage/backlog.db` (SQLite with WAL mode for concurrent access) and managed via `./scrimmage/backlog_db.py`.
 
 ### Usage
 

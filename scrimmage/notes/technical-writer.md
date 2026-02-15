@@ -21,10 +21,10 @@
 ## Process Notes
 
 ### Committing Documentation (Shared Files)
-- Documentation in `notes/` is symlinked across worktrees (see CLAUDE.md Worktree Config).
+- Documentation in `scrimmage/notes/` is symlinked across worktrees (see CLAUDE.md Worktree Config).
 - Commit shared docs directly from the main worktree on master, NOT via feature branch.
 - Still follow full Agent Workflow: Orient → Worktree → Execute → Review → Cleanup.
 
 ### Decision Documents
-- Decision documents go in `notes/plans/{sprint}-{topic}-decision.md`.
+- Decision documents go in `scrimmage/notes/plans/{sprint}-{topic}-decision.md`.
 - Include: Executive Summary, Current State, Decision, Rationale, Migration Plan, Rollback Plan, Alternatives Considered, Security Impact.

@@ -91,7 +91,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev]"  # TODO: customize
+          pip install -e "./scrimmage[dev]"  # TODO: customize
           cd infra && npm ci               # TODO: customize
 
       # TODO: Add your deployment phases here

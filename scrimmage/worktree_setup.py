@@ -208,9 +208,10 @@ def cmd_create(args: argparse.Namespace) -> None:
         elif wt_path.exists() or wt_path.is_symlink():
             wt_path.unlink()
 
-        # Create symlink: worktree path → main worktree path
-        wt_path.symlink_to(main_path)
-        print(f"  Symlinked {item} → {main_path}")
+        # Create symlink: worktree path → main worktree path (relative)
+        rel_path = os.path.relpath(main_path, wt_path.parent)
+        wt_path.symlink_to(rel_path)
+        print(f"  Symlinked {item} → {rel_path}")
 
     # --- Per-agent git config ---
     project_name = repo_name.replace("-", " ").title().replace(" ", "")

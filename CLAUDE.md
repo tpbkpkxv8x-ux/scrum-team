@@ -4,7 +4,7 @@
 
 ## Getting Started
 
-Read `scrimmage-team.md` in this repo and follow it. If you are the only agent in your team then you are the scrimmage master (servant leader).
+Read `scrimmage/scrimmage-team.md` in this repo and follow it. If you are the only agent in your team then you are the scrimmage master (servant leader).
 
 ## Tech Stack
 
@@ -32,7 +32,7 @@ Monorepo layout:
 - Backend code goes in `/backend` with tests alongside.
 - Frontend code goes in `/frontend` with tests alongside.
 - The product owner will be briefed by the user at runtime — do not assume what the product is.
-- The **Product Backlog** lives in `backlog.db` (SQLite, WAL mode), managed via `backlog_db.py`. Import `get_backlog_db` to access it. The DB supports concurrent read/write by multiple agents.
+- The **Product Backlog** lives in `scrimmage/backlog.db` (SQLite, WAL mode), managed via `scrimmage/backlog_db.py`. Import `get_backlog_db` to access it. The DB supports concurrent read/write by multiple agents.
 
 ## Worktree Config
 
@@ -41,8 +41,7 @@ Configuration for `worktree_setup.py` — parsed automatically when creating age
 <!-- Customize: update symlinks and deps for your project -->
 ```yaml
 symlinks:
-  - backlog.db
-  - notes
+  - scrimmage
   - infra
 deps:
   - dir: backend
@@ -53,7 +52,7 @@ deps:
 
 ## Local Verification Pipeline
 
-See `scrimmage-team.md` § Local Verification Pipeline for the standard checks to run before requesting review.
+See `scrimmage/scrimmage-team.md` § Local Verification Pipeline for the standard checks to run before requesting review.
 
 ## Model Tier Discipline
 
@@ -68,8 +67,8 @@ Use the right model tier for each task to balance cost and capability:
 ## Key Process Rules
 
 - **Never commit directly to master** from a worktree. Always use feature branches and merge via the standard workflow.
-- **Deploy from main repo** — branch deploys use `branch_deploy.sh` from the main repo path, not from worktrees.
-- **Backlog is the source of truth** — all work items, status changes, and comments go through `backlog_db.py`.
+- **Deploy from main repo** — branch deploys use `scrimmage/branch_deploy.sh` from the main repo path, not from worktrees.
+- **Backlog is the source of truth** — all work items, status changes, and comments go through `scrimmage/backlog_db.py`.
 - **One item per agent** — each agent works on one backlog item at a time, then exits.
 
 ## Environment
@@ -78,14 +77,14 @@ Use the right model tier for each task to balance cost and capability:
 - Python 3 available system-wide
 - Node.js and npm available system-wide
 - No sudo access — install Python packages with `pip install --user` or in a venv
-- AWS credentials: see `docs/aws-credentials-setup.md` for MFA-protected temporary credential setup
+- AWS credentials: see `scrimmage/docs/aws-credentials-setup.md` for MFA-protected temporary credential setup
 
 ## Knowledge Management
 
-Write lessons learned to `notes/*.md`, NOT to Claude auto-memory (`~/.claude/`). The `notes/` directory is git-tracked and survives clones.
+Write lessons learned to `scrimmage/notes/*.md`, NOT to Claude auto-memory (`~/.claude/`). The `scrimmage/notes/` directory is git-tracked and survives clones.
 
-- Role-specific lessons → `notes/{role}.md`
-- Cross-cutting issues → `notes/known-issues.md`
+- Role-specific lessons → `scrimmage/notes/{role}.md`
+- Cross-cutting issues → `scrimmage/notes/known-issues.md`
 - Critical always-know-this rules → propose additions to this file (`CLAUDE.md`)
 
 ## Compaction Instructions
@@ -95,10 +94,10 @@ When auto-compaction triggers or `/compact` is used, follow these rules strictly
 ### MUST re-read and follow ALL of:
 
 - this file ./CLAUDE.md
-- scrimmage-team.md
-- ./notes/{role}.md matching your role. Files: `backend-engineer.md`, `frontend-engineer.md`, `cloud-engineer.md`, `integration-engineer.md`,
+- scrimmage/scrimmage-team.md
+- ./scrimmage/notes/{role}.md matching your role. Files: `backend-engineer.md`, `frontend-engineer.md`, `cloud-engineer.md`, `integration-engineer.md`,
   `dba.md`, `product-owner.md`, `peer-reviewer.md`, `scrimmage-master.md`, `ui-ux-designer.md`, `technical-writer.md`
- - ./notes/known-issues.md
+ - ./scrimmage/notes/known-issues.md
 
 > MUST: After compaction, re-read every file you plan to edit before making changes. Do not rely on pre-compaction memory of file contents
 

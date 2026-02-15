@@ -2,14 +2,14 @@
 """Generate SM state snapshot from existing data sources.
 
 Queries the backlog DB, git worktrees, git log, and optional team config
-to produce a populated ``notes/sm-state.md`` that the Scrimmage Master
+to produce a populated ``scrimmage/notes/sm-state.md`` that the Scrimmage Master
 can read for coordination context.
 
 Usage::
 
-    python3 tools/generate_sm_state.py --sprint sprint-8
-    python3 tools/generate_sm_state.py --sprint sprint-8 --team my-project
-    python3 tools/generate_sm_state.py --sprint sprint-8 --output /tmp/state.md
+    python3 scrimmage/tools/generate_sm_state.py --sprint sprint-8
+    python3 scrimmage/tools/generate_sm_state.py --sprint sprint-8 --team my-project
+    python3 scrimmage/tools/generate_sm_state.py --sprint sprint-8 --output /tmp/state.md
 """
 
 from __future__ import annotations
@@ -25,11 +25,12 @@ from pathlib import Path
 # Repo / path helpers
 # ---------------------------------------------------------------------------
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+SCRIMMAGE_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = SCRIMMAGE_DIR.parent
 
-# Ensure repo root is importable (for backlog_db, worktree_setup)
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+# Ensure scrimmage dir is importable (for backlog_db, worktree_setup)
+if str(SCRIMMAGE_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIMMAGE_DIR))
 
 from backlog_db import get_backlog_db  # noqa: E402
 from worktree_setup import derive_stage_name  # noqa: E402
@@ -348,10 +349,12 @@ def _collect_deployments(worktrees: list[dict[str, str]]) -> str:
 def generate_sm_state(
     sprint: str,
     team_name: str | None = None,
-    output_path: str | Path = "notes/sm-state.md",
+    output_path: str | Path | None = None,
 ) -> str:
     """Generate the full SM state markdown and write it to output_path."""
-    bl = get_backlog_db(db_path=REPO_ROOT / "backlog.db")
+    if output_path is None:
+        output_path = SCRIMMAGE_DIR / "notes" / "sm-state.md"
+    bl = get_backlog_db(db_path=SCRIMMAGE_DIR / "backlog.db")
     worktrees = _collect_worktrees()
 
     sections = [
@@ -384,7 +387,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--sprint", required=True, help="Sprint name to query (e.g. sprint-8)")
     parser.add_argument("--team", default=None, help="Team name for agent metadata (reads ~/.claude/teams/{team}/config.json)")
-    parser.add_argument("--output", default="notes/sm-state.md", help="Output path (default: notes/sm-state.md)")
+    default_output = str(SCRIMMAGE_DIR / "notes" / "sm-state.md")
+    parser.add_argument("--output", default=default_output, help=f"Output path (default: {default_output})")
     return parser.parse_args(argv)
 
 

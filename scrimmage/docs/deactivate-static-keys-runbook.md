@@ -11,10 +11,10 @@ This runbook covers deactivating static IAM access keys after verifying the assu
 - IAM stack deployed
 - Virtual MFA device configured
 - **Assume-role flow verified working**
-  - You have successfully run `source tools/assume-deploy-role.sh`
+  - You have successfully run `source scrimmage/tools/assume-deploy-role.sh`
   - You have verified `aws sts get-caller-identity` shows assumed-role ARN
   - You have tested CDK deploy with temporary credentials
-  - You have tested branch_deploy.sh with temporary credentials
+  - You have tested scrimmage/branch_deploy.sh with temporary credentials
 
 **DO NOT PROCEED** if assume-role flow has not been verified end-to-end by a human.
 
@@ -124,7 +124,7 @@ If you see this error, the static key is successfully deactivated.
 
 ```bash
 # Assume the developer role
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 
 # Enter MFA token when prompted
 
@@ -152,7 +152,7 @@ npx cdk deploy <stack-name> --require-approval never
 
 ```bash
 # Test branch deploy (can Ctrl-C after it starts)
-./branch_deploy.sh ../worktrees/test-feature
+./scrimmage/branch_deploy.sh ../worktrees/test-feature
 ```
 
 **Expected:** Script proceeds without static key warning.
@@ -180,7 +180,7 @@ nano ~/.aws/credentials
 **Option 2:** Remove the static key entirely (more secure):
 ```ini
 [default]
-# No static credentials - use tools/assume-deploy-role.sh
+# No static credentials - use scrimmage/tools/assume-deploy-role.sh
 ```
 
 ## Rollback Procedure

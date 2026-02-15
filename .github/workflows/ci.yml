@@ -24,7 +24,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"  # TODO: customize for your project
+        run: pip install -e "./scrimmage[dev]"  # TODO: customize for your project
 
       - name: Lint
         run: python3 -m ruff check .  # TODO: customize linter
@@ -84,7 +84,7 @@ jobs:
         run: |
           # shellcheck is pre-installed on ubuntu-latest
           shellcheck --severity=warning \
-            branch_deploy.sh \
-            branch_teardown.sh \
-            tools/*.sh
+            scrimmage/branch_deploy.sh \
+            scrimmage/branch_teardown.sh \
+            scrimmage/tools/*.sh
           # TODO: add or remove scripts as needed

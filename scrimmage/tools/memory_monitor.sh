@@ -2,7 +2,7 @@
 # Memory pressure monitor for multi-agent scrimmage sessions.
 # Runs in a tmux pane and warns when memory usage gets high.
 #
-# Usage: ./tools/memory_monitor.sh [--interval SECS] [--warn PCT] [--critical PCT]
+# Usage: ./scrimmage/tools/memory_monitor.sh [--interval SECS] [--warn PCT] [--critical PCT]
 #
 # Thresholds:
 #   --warn     : yellow warning threshold (default: 70%)

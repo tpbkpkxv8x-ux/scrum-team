@@ -130,20 +130,20 @@ The reference below documents each method once, showing both calling conventions
 
 ## Getting a Database Instance
 
-### `get_backlog_db(db_path="backlog.db", *, agent=None)`
+### `get_backlog_db(db_path=DEFAULT_DB_PATH, *, agent=None)`
 
 Returns a `ProductBacklog` instance. Thread-safe singleton — one instance per `(db_path, agent)` pair. Different agents sharing the same DB file get separate instances (each recording their own identity in the audit trail).
 
 ```python
 from backlog_db import get_backlog_db
 
-bl = get_backlog_db(agent="Barry")               # default DB, agent identified
+bl = get_backlog_db(agent="Barry")               # default DB (scrimmage/backlog.db), agent identified
 bl2 = get_backlog_db("/tmp/other.db", agent="Sam")
 ```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `db_path` | `str` or `Path` | `"backlog.db"` | Path to the SQLite database file. Created automatically if it doesn't exist. |
+| `db_path` | `str` or `Path` | `scrimmage/backlog.db` | Path to the SQLite database file. Defaults to `backlog.db` next to the module (i.e. `scrimmage/backlog.db`). Created automatically if it doesn't exist. |
 | `agent` | `str` or `None` | `None` | Short agent name. Used as a prefix for the full agent identity in all audit-trail events. |
 
 **Returns:** `ProductBacklog`

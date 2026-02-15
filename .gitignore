@@ -11,4 +11,4 @@ node_modules/
 cdk.out/
 dist/
 infra/cdk.out.*/
-notes/sm-state.md
+scrimmage/notes/sm-state.md

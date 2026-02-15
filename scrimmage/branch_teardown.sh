@@ -52,6 +52,7 @@ done
 
 WORKTREE_PATH="$(cd "$WORKTREE_PATH" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 
 # ─── Stage name derivation ──────────────────────────────────────────────────
 # Derive stage name from the branch (not the path) using worktree_setup.py
@@ -72,7 +73,7 @@ info "Worktree: $WORKTREE_PATH"
 # ─── AWS credential check ───────────────────────────────────────────────────
 if [[ -z "${AWS_SESSION_TOKEN:-}" ]]; then
   if [[ "${ALLOW_STATIC_CREDS:-}" != "1" ]]; then
-    die "Temporary AWS credentials required. Run: source tools/assume-deploy-role.sh"
+    die "Temporary AWS credentials required. Run: source scrimmage/tools/assume-deploy-role.sh"
   fi
   warn "Using static credentials (ALLOW_STATIC_CREDS=1 override)"
 fi
@@ -94,7 +95,7 @@ if $REMOVE_WORKTREE; then
 
   # Check if branch is merged
   if [[ -n "$BRANCH_NAME" ]] && [[ "$BRANCH_NAME" != "master" ]] && [[ "$BRANCH_NAME" != "main" ]]; then
-    if git -C "$SCRIPT_DIR" branch --merged master | grep -q "$BRANCH_NAME"; then
+    if git -C "$REPO_ROOT" branch --merged master | grep -q "$BRANCH_NAME"; then
       info "Branch $BRANCH_NAME is merged into master"
     else
       warn "Branch $BRANCH_NAME is NOT merged into master"
@@ -107,9 +108,9 @@ if $REMOVE_WORKTREE; then
     info "Use worktree_setup.py to remove the worktree:"
     info "  python3 $SCRIPT_DIR/worktree_setup.py teardown <agent-name> <branch-desc>"
   else
-    git -C "$SCRIPT_DIR" worktree remove "$WORKTREE_PATH" --force
+    git -C "$REPO_ROOT" worktree remove "$WORKTREE_PATH" --force
     if [[ -n "$BRANCH_NAME" ]]; then
-      git -C "$SCRIPT_DIR" branch -d "$BRANCH_NAME" 2>/dev/null || true
+      git -C "$REPO_ROOT" branch -d "$BRANCH_NAME" 2>/dev/null || true
     fi
   fi
   ok "Worktree removed"

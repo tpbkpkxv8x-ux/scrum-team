@@ -73,6 +73,7 @@ done
 # Resolve absolute path
 WORKTREE_PATH="$(cd "$WORKTREE_PATH" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 
 # ─── Stage name derivation ──────────────────────────────────────────────────
 # Derive stage name from the branch (not the path) using worktree_setup.py
@@ -129,14 +130,14 @@ check_aws_credentials() {
     fail "This deployment requires temporary credentials with MFA."
     fail "To deploy, obtain temporary credentials with:"
     fail ""
-    fail "  source tools/assume-deploy-role.sh"
+    fail "  source scrimmage/tools/assume-deploy-role.sh"
     fail ""
     fail "Then re-run this script."
     warn "Emergency override: Set ALLOW_STATIC_CREDS=1 to bypass this check"
     exit 1
   fi
 
-  die "No AWS credentials found. Run: source tools/assume-deploy-role.sh"
+  die "No AWS credentials found. Run: source scrimmage/tools/assume-deploy-role.sh"
 }
 
 check_aws_credentials
@@ -160,7 +161,7 @@ warn "Phase 1 not implemented — add your infrastructure deploy commands"
 info "═══ Phase 2: Build application ═══"
 # TODO: Extract stack outputs, rebuild frontend with real config.
 # Example:
-#   API_URL=$(python3 tools/cfn_output.py MyStack-$STAGE_NAME ApiEndpoint)
+#   API_URL=$(python3 scrimmage/tools/cfn_output.py MyStack-$STAGE_NAME ApiEndpoint)
 #   cd "$WORKTREE_PATH/frontend" && VITE_API_URL=$API_URL npm run build
 warn "Phase 2 not implemented — add your application build commands"
 
@@ -202,7 +203,7 @@ merge_branch() {
     local protected_deletions=""
     while IFS= read -r file; do
       case "$file" in
-        notes/*|tools/*|.claude/*) protected_deletions+="  $file"$'\n' ;;
+        scrimmage/notes/*|scrimmage/tools/*|.claude/*) protected_deletions+="  $file"$'\n' ;;
       esac
     done <<< "$deletions"
     if [[ -n "$protected_deletions" ]]; then
@@ -213,14 +214,14 @@ merge_branch() {
   fi
 
   # Do the merge from the main repo
-  run git -C "$SCRIPT_DIR" fetch origin master
-  run git -C "$SCRIPT_DIR" checkout master
-  run git -C "$SCRIPT_DIR" pull origin master
+  run git -C "$REPO_ROOT" fetch origin master
+  run git -C "$REPO_ROOT" checkout master
+  run git -C "$REPO_ROOT" pull origin master
   if $DRY_RUN; then
     echo -e "${YELLOW}[DRY-RUN]${NC} git merge $feature_branch"
   else
-    git -C "$SCRIPT_DIR" merge "$feature_branch" || die "Merge failed — resolve conflicts manually"
-    git -C "$SCRIPT_DIR" push origin master || die "Push failed"
+    git -C "$REPO_ROOT" merge "$feature_branch" || die "Merge failed — resolve conflicts manually"
+    git -C "$REPO_ROOT" push origin master || die "Push failed"
   fi
   ok "Merged $feature_branch into master and pushed"
 }

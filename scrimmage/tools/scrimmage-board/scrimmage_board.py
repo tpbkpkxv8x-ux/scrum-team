@@ -133,13 +133,13 @@ def _get_backlog_db() -> object:
     We do a lazy import so the module can be imported without
     backlog_db being on sys.path (tests mock this function).
     """
-    # Ensure the repo root is on the path so backlog_db is importable
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    if str(repo_root) not in sys.path:
-        sys.path.insert(0, str(repo_root))
+    # Ensure the scrimmage dir is on the path so backlog_db is importable
+    scrimmage_dir = Path(__file__).resolve().parent.parent.parent
+    if str(scrimmage_dir) not in sys.path:
+        sys.path.insert(0, str(scrimmage_dir))
 
     from backlog_db import get_backlog_db
-    db_path = repo_root / "backlog.db"
+    db_path = scrimmage_dir / "backlog.db"
     return get_backlog_db(db_path=db_path)
 
 

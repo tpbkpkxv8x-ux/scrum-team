@@ -9,8 +9,8 @@
 # long-lived static keys.
 #
 # Usage:
-#   source tools/assume-deploy-role.sh              # 12 hour session (default)
-#   source tools/assume-deploy-role.sh 3600         # 1 hour session
+#   source scrimmage/tools/assume-deploy-role.sh              # 12 hour session (default)
+#   source scrimmage/tools/assume-deploy-role.sh 3600         # 1 hour session
 #
 # After sourcing this script, your shell will have temporary credentials set
 # as environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN).
@@ -123,7 +123,7 @@ echo ""
 echo "Examples:"
 echo "  aws sts get-caller-identity                    # Verify you're using the role"
 echo "  cd infra && npx cdk deploy --all               # Deploy with temp credentials"
-echo "  ./branch_deploy.sh ../worktrees/my-feature     # Branch deploy with temp creds"
+echo "  ./scrimmage/branch_deploy.sh ../worktrees/my-feature     # Branch deploy with temp creds"
 echo ""
 # Display expiration time in a human-friendly format
 if [[ $DURATION -ge 3600 ]]; then

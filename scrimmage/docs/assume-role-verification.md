@@ -8,7 +8,7 @@ This document provides manual verification steps for the assume-role flow with M
 
 - IAM stack deployed (`<project-name>-Developer` role exists)
 - Virtual MFA device configured on IAM user
-- `tools/assume-deploy-role.sh` script present
+- `scrimmage/tools/assume-deploy-role.sh` script present
 
 ## Automated Pre-Checks
 
@@ -16,7 +16,7 @@ Run the automated component tests first:
 
 ```bash
 # Test non-interactive components
-bash tools/test_assume_role_components.sh
+bash scrimmage/tools/test_assume_role_components.sh
 ```
 
 Expected output: All 5 tests pass (MFA detection, role exists, current identity, trust policy, MFA requirement).
@@ -27,7 +27,7 @@ Expected output: All 5 tests pass (MFA detection, role exists, current identity,
 
 ```bash
 # Source the script (must use 'source' to set env vars in current shell)
-source tools/assume-deploy-role.sh
+source scrimmage/tools/assume-deploy-role.sh
 ```
 
 **Expected behavior:**
@@ -81,7 +81,7 @@ npx cdk deploy <role-name> --require-approval never
 
 ```bash
 # Just verify it starts (can Ctrl-C after it begins)
-./branch_deploy.sh ../worktrees/test-feature
+./scrimmage/branch_deploy.sh ../worktrees/test-feature
 ```
 
 **Expected behavior:**
@@ -105,7 +105,7 @@ aws sts get-caller-identity
 
 - [ ] `aws sts get-caller-identity` shows `assumed-role/<project-name>-Developer` ARN
 - [ ] CDK deploy succeeds with temporary credentials
-- [ ] branch_deploy.sh works with temporary credentials (no static key warning)
+- [ ] scrimmage/branch_deploy.sh works with temporary credentials (no static key warning)
 - [ ] Credentials expire after the configured duration
 - [ ] No AdministratorAccess required (scoped policy is sufficient)
 
